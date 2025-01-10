@@ -153,6 +153,7 @@
 import ButtonGeneral from '@/components/ButtonGeneral.vue';
 import HotelListing from '@/components/HotelListing.vue';
 import InputField from '@/components/InputField.vue';
+import socket from '@/socket'
 import {reactive, ref, watch} from 'vue';
 
 const search_details = ref({
@@ -222,26 +223,23 @@ async function run_scraper(){
         roomDetail.ages = kidsAgesInputs.map(input => input.value); 
       }
   });
-  const ws = new WebSocket('ws://localhost:3001/scraper-hoteles/echo');
 
-  ws.onopen = () => {
-    console.log('WebSocket connection opened');
-    ws.send(JSON.stringify(search_details.value))
-  };
-  ws.onmessage = (event) => {
-      still_searching.value = true
-      searching.value = false
-      const data = JSON.parse(event.data);
-      if(data.Error){
-          error_operadoras.value.push(data.Error)
-          console.log(error_operadoras)
-      }else{
-          copy_arr.push(...data)
-          results_arr.value.push(...data)
-      }
-  };
-  ws.onclose = () => {
-      still_searching.value = false
+  socket.emit('message', JSON.stringify(search_details.value))
+  
+  socket.on('message', (event) => {
+    still_searching.value = true
+    searching.value = false
+    console.log(event)
+    if(event.Error){
+        error_operadoras.value.push(event.Error)
+        console.log(error_operadoras)
+    }else{
+        copy_arr.push(...event)
+        results_arr.value.push(...event)
+    }
+  })
+  socket.on('disconnect', () =>{
+    still_searching.value = false
       const uniqueOperadoras = [...new Set(results_arr.value.map(item => item.operadora))];
       const uniqueScores = [...new Set(results_arr.value.map(item => item.score))];
       const uniquedetails = [...new Set(results_arr.value.map(item => item.hotel_details))];
@@ -257,6 +255,6 @@ async function run_scraper(){
       filter.hotel_details.push(...uniquedetails)
       filter.cancelacion.push(...uniqueCancelacion)
       console.log('Connection Closed')
-  }
+  })
 }
 </script>
